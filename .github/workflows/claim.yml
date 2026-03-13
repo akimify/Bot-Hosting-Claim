@@ -1,0 +1,52 @@
+name: Bot-Hosting 自动领取
+
+on:
+  # 定时触发：每天 UTC 08:00（北京时间 16:00）
+  schedule:
+    - cron: '0 8 * * *'
+
+  # 手动触发
+  workflow_dispatch:
+
+jobs:
+  claim:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 安装依赖
+        run: |
+          pip install playwright hcaptcha-challenger
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: 安装虚拟显示器
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb
+
+      - name: 运行自动领取脚本
+        env:
+          DISCORD_EMAIL:    ${{ secrets.DISCORD_EMAIL }}
+          DISCORD_PASSWORD: ${{ secrets.DISCORD_PASSWORD }}
+          PROXY:            ${{ secrets.PROXY }}
+          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
+            python main.py
+
+      - name: 上传截图（失败时）
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshot
+          path: screenshot_*.png
+          if-no-files-found: ignore
