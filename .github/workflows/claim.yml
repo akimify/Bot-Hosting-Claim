@@ -1,12 +1,9 @@
 name: Bot-Hosting 自动领取
 
 on:
-  # 定时触发：每天 UTC 08:00（北京时间 16:00）
+  workflow_dispatch:
   schedule:
     - cron: '0 8 * * *'
-
-  # 手动触发
-  workflow_dispatch:
 
 jobs:
   claim:
@@ -14,57 +11,45 @@ jobs:
     timeout-minutes: 30
 
     steps:
-      - name: 检出代码
+      - name: 📥 检出代码
         uses: actions/checkout@v4
 
-      - name: 安装 Python
-        uses: actions/setup-python@v5
+      - name: 🐍 设置 Python
+        uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: '3.10'
 
-      - name: 安装依赖
+      - name: 🛡️ 启动 Gost 代理转发
+        run: |
+          wget -q https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz
+          gunzip gost-linux-amd64-2.11.5.gz
+          chmod +x gost-linux-amd64-2.11.5
+          mv gost-linux-amd64-2.11.5 gost
+          nohup ./gost -L socks5://:1080 -F socks5://1:1@38.146.29.26:9004 > gost.log 2>&1 &
+          sleep 3
+          curl --socks5 127.0.0.1:1080 https://api.ipify.org -s
+
+      - name: 🛠️ 安装系统依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb
+
+      - name: 🐍 安装 Python 依赖
         run: |
           pip install playwright hcaptcha-challenger
           playwright install chromium
           playwright install-deps chromium
 
-      - name: 安装虚拟显示器
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y xvfb
-
-      - name: 安装并启动 gost（代理转发）
+      - name: 🚀 运行脚本
         env:
-          PROXY: ${{ secrets.PROXY }}
-        run: |
-          # 下载 gost v3
-          curl -fsSL https://github.com/go-gost/gost/releases/download/v3.0.0/gost_3.0.0_linux_amd64.tar.gz \
-            | tar -xz -C /usr/local/bin gost
-          chmod +x /usr/local/bin/gost
-
-          # 将本地 socks5://127.0.0.1:1080 转发到带认证的远端代理
-          # PROXY 格式: socks5://user:pass@ip:port
-          nohup gost -L socks5://127.0.0.1:1080 -F "${PROXY}" > /tmp/gost.log 2>&1 &
-
-          # 等待 gost 就绪
-          sleep 2
-          echo "✓ gost 已启动，本地监听 socks5://127.0.0.1:1080"
-
-      - name: 运行自动领取脚本
-        env:
-          DISCORD_EMAIL:    ${{ secrets.DISCORD_EMAIL }}
-          DISCORD_PASSWORD: ${{ secrets.DISCORD_PASSWORD }}
-          # 使用本地无认证的 gost 转发端口，Playwright 直接支持
-          PROXY:            socks5://127.0.0.1:1080
-          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
+          PYTHONIOENCODING: utf-8
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
             python main.py
 
-      - name: 上传截图（失败时）
-        if: failure()
+      - name: 📸 上传截图
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: failure-screenshot
-          path: screenshot_*.png
-          if-no-files-found: ignore
+          name: debug-screenshots
+          path: "*.png"
