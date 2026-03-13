@@ -171,7 +171,7 @@ async def solve_hcaptcha(page):
         else:
             print("  ⚠️  GEMINI_API_KEY 未设置，hCaptcha 可能失败")
 
-        CONFIGURED_MODEL = "gemini-2.5-flash-image"
+        CONFIGURED_MODEL = "gemini-2.0-flash"
         print(f"🛡️  【配置模型】{CONFIGURED_MODEL}")
 
         agent_config = AgentConfig(model=CONFIGURED_MODEL)
