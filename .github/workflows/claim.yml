@@ -9,15 +9,17 @@ jobs:
   claim:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: write
 
     steps:
       - name: 📥 检出代码
         uses: actions/checkout@v4
 
       - name: 🐍 设置 Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.x'
 
       - name: 🛡️ 启动 Gost 代理转发
         run: |
@@ -28,36 +30,58 @@ jobs:
           sleep 3
           curl --socks5 127.0.0.1:1080 https://api.ipify.org -s
 
-      - name: 🛠️ 安装系统依赖
+      - name: 🛠️ 安装依赖
         run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y xvfb
-
-      - name: 🐍 安装 Python 依赖
-        run: |
-          pip install playwright "hcaptcha-challenger[gemini]"
-          playwright install chromium
-          playwright install-deps chromium
+          sudo apt update
+          sudo apt install -y \
+              libnss3 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1 \
+              libasound2t64 libatspi2.0-0 libxshmfence1 libx11-xcb1 libxrandr2 \
+              libxcomposite1 libxcursor1 libxdamage1 libxfixes3 libxi6 \
+              libgtk-3-0t64 libatk1.0-0t64 libcairo-gobject2 libgdk-pixbuf-2.0-0 \
+              fonts-noto-color-emoji xvfb
+          pip install uv
+          uv venv
+          source .venv/bin/activate
+          uv pip install -r requirements.txt
+          playwright install
 
       - name: ✅ 验证依赖安装
         run: |
+          source .venv/bin/activate
           python -c "from hcaptcha_challenger.agent import AgentV, AgentConfig; print('✓ hcaptcha_challenger 已安装')"
           python -c "from playwright.async_api import async_playwright; print('✓ playwright 已安装')"
 
-      - name: 🚀 运行脚本
-        env:
-          PYTHONIOENCODING: utf-8
-          DISCORD_EMAIL:    ${{ secrets.DISCORD_EMAIL }}
-          DISCORD_PASSWORD: ${{ secrets.DISCORD_PASSWORD }}
-          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
-          PROXY:            socks5://127.0.0.1:1080
+      - name: 🔑 导出 Secrets 到环境变量
+        uses: oNaiPs/secrets-to-env-action@v1
+        with:
+          secrets: ${{ toJSON(secrets) }}
+
+      - name: 🖥️ 启动 noVNC
+        run: sudo bash runnovnc.sh
+
+      - name: ⏳ 等待 noVNC 就绪
         run: |
-          xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
-            python main.py
+          for i in {1..60}; do
+            if nc -z localhost 8080; then
+              echo "noVNC 已启动"
+              break
+            fi
+            echo "等待中 ($i)..."
+            sleep 1
+          done
+
+      - name: 🚀 运行脚本
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/.tmp"
+          export TMPDIR="$GITHUB_WORKSPACE/.tmp"
+          export DISPLAY=:1
+          export PYTHONIOENCODING=utf-8
+          source .venv/bin/activate
+          python main.py
 
       - name: 📸 上传截图
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: debug-screenshots
+          name: screenshots
           path: screenshots/
