@@ -25,7 +25,7 @@ jobs:
           gunzip gost-linux-amd64-2.11.5.gz
           chmod +x gost-linux-amd64-2.11.5
           mv gost-linux-amd64-2.11.5 gost
-          nohup ./gost -L socks5://:1080 -F socks5://1:1@38.146.29.26:9004 > gost.log 2>&1 &
+          nohup ./gost -L socks5://:1080 -F socks5://${{ secrets.PROXY_USER }}:${{ secrets.PROXY_PASS }}@${{ secrets.PROXY_HOST }} > gost.log 2>&1 &
           sleep 3
           curl --socks5 127.0.0.1:1080 https://api.ipify.org -s
 
@@ -36,13 +36,17 @@ jobs:
 
       - name: 🐍 安装 Python 依赖
         run: |
-          pip install playwright hcaptcha-challenger
+          pip install playwright "hcaptcha-challenger[gemini]"
           playwright install chromium
           playwright install-deps chromium
 
       - name: 🚀 运行脚本
         env:
           PYTHONIOENCODING: utf-8
+          DISCORD_EMAIL:    ${{ secrets.DISCORD_EMAIL }}
+          DISCORD_PASSWORD: ${{ secrets.DISCORD_PASSWORD }}
+          GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
+          PROXY:            socks5://127.0.0.1:1080
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
             python main.py
@@ -52,4 +56,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: debug-screenshots
-          path: "*.png"
+          path: screenshots/
