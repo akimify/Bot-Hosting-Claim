@@ -76,6 +76,7 @@ jobs:
           export TMPDIR="$GITHUB_WORKSPACE/.tmp"
           export DISPLAY=:1
           export PYTHONIOENCODING=utf-8
+          export PROXY=socks5://127.0.0.1:1080
           source .venv/bin/activate
           python main.py
 
