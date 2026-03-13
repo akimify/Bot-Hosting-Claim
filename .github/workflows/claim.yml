@@ -39,6 +39,11 @@ jobs:
           playwright install chromium
           playwright install-deps chromium
 
+      - name: ✅ 验证依赖安装
+        run: |
+          python -c "from hcaptcha_challenger.agent import AgentV, AgentConfig; print('✓ hcaptcha_challenger 已安装')"
+          python -c "from playwright.async_api import async_playwright; print('✓ playwright 已安装')"
+
       - name: 🚀 运行脚本
         env:
           PYTHONIOENCODING: utf-8
