@@ -21,11 +21,10 @@ jobs:
 
       - name: 🛡️ 启动 Gost 代理转发
         run: |
-          wget -q https://github.com/ginuerzh/gost/releases/download/v2.11.5/gost-linux-amd64-2.11.5.gz
-          gunzip gost-linux-amd64-2.11.5.gz
-          chmod +x gost-linux-amd64-2.11.5
-          mv gost-linux-amd64-2.11.5 gost
-          nohup ./gost -L socks5://:1080 -F socks5://${{ secrets.PROXY_USER }}:${{ secrets.PROXY_PASS }}@${{ secrets.PROXY_HOST }} > gost.log 2>&1 &
+          wget -q https://github.com/go-gost/gost/releases/download/v3.0.0/gost_3.0.0_linux_amd64.tar.gz
+          tar -xzf gost_3.0.0_linux_amd64.tar.gz
+          chmod +x gost
+          nohup ./gost -L socks5://:1080 -F ${{ secrets.GOST_PROXY }} > gost.log 2>&1 &
           sleep 3
           curl --socks5 127.0.0.1:1080 https://api.ipify.org -s
 
