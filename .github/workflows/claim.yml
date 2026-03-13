@@ -33,11 +33,29 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y xvfb
 
+      - name: 安装并启动 gost（代理转发）
+        env:
+          PROXY: ${{ secrets.PROXY }}
+        run: |
+          # 下载 gost v3
+          curl -fsSL https://github.com/go-gost/gost/releases/download/v3.0.0/gost_3.0.0_linux_amd64.tar.gz \
+            | tar -xz -C /usr/local/bin gost
+          chmod +x /usr/local/bin/gost
+
+          # 将本地 socks5://127.0.0.1:1080 转发到带认证的远端代理
+          # PROXY 格式: socks5://user:pass@ip:port
+          nohup gost -L socks5://127.0.0.1:1080 -F "${PROXY}" > /tmp/gost.log 2>&1 &
+
+          # 等待 gost 就绪
+          sleep 2
+          echo "✓ gost 已启动，本地监听 socks5://127.0.0.1:1080"
+
       - name: 运行自动领取脚本
         env:
           DISCORD_EMAIL:    ${{ secrets.DISCORD_EMAIL }}
           DISCORD_PASSWORD: ${{ secrets.DISCORD_PASSWORD }}
-          PROXY:            ${{ secrets.PROXY }}
+          # 使用本地无认证的 gost 转发端口，Playwright 直接支持
+          PROXY:            socks5://127.0.0.1:1080
           GEMINI_API_KEY:   ${{ secrets.GEMINI_API_KEY }}
         run: |
           xvfb-run --auto-servernum --server-args="-screen 0 1920x1080x24" \
